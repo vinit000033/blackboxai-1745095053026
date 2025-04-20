@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 class MentionBot:
     def __init__(self):
-        self.custom_message = "Hello! You mentioned me."  # Default message
+        self.custom_message = "Hello!Thank you for your request! Rest assured, it will soon reach my boss 😊."  # Default message
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("Hello! I am your MentionBot. Admin can set a custom reply message using /setmessage command.")
+        await update.message.reply_text("Hello! I am your assistant to manage ipm library support. VINIT BOSS can set a custom reply message using /setmessage command.")
 
     async def set_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
