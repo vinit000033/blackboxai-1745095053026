@@ -1,10 +1,14 @@
+import os
 import logging
 from telegram import Update, Chat
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from aiohttp import web
 
-BOT_TOKEN = "7630640686:AAEGI256TNsKEpMxX4M7zxgkDd_ayJR4fow"
-ADMIN_ID = 5915871770  # Admin Telegram user ID as integer
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+PORT = int(os.getenv("PORT", "8000"))
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -57,14 +61,37 @@ class MentionBot:
                             await context.bot.send_message(chat_id=ADMIN_ID, text=report_text, parse_mode=ParseMode.HTML)
                             break
 
+    async def on_startup(self, app: web.Application):
+        # Set webhook on startup
+        await app.bot.set_webhook(WEBHOOK_URL)
+        logger.info(f"Webhook set to {WEBHOOK_URL}")
+
+    async def on_shutdown(self, app: web.Application):
+        # Remove webhook on shutdown
+        await app.bot.delete_webhook()
+        logger.info("Webhook deleted")
+
     def run(self):
+        if not BOT_TOKEN or not ADMIN_ID or not WEBHOOK_URL:
+            logger.error("BOT_TOKEN, ADMIN_ID, and WEBHOOK_URL environment variables must be set")
+            return
+
         app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-        app.add_handler(CommandHandler("start", self.start))
-        app.add_handler(CommandHandler("setmessage", self.set_message))
-        app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.handle_message))
+        mention_bot = self
 
-        app.run_polling()
+        app.add_handler(CommandHandler("start", mention_bot.start))
+        app.add_handler(CommandHandler("setmessage", mention_bot.set_message))
+        app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), mention_bot.handle_message))
+
+        # Use aiohttp web server for webhook
+        web_app = app.create_web_app()
+        web_app.bot = app.bot
+
+        web_app.on_startup.append(self.on_startup)
+        web_app.on_shutdown.append(self.on_shutdown)
+
+        web.run_app(web_app, port=PORT)
 
 if __name__ == "__main__":
     bot = MentionBot()
